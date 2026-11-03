@@ -231,8 +231,8 @@ final class LyricsService: ObservableObject {
     func line(at position: Double) -> String? {
         guard !lines.isEmpty else { return nil }
         let t = position + 0.3
-        guard let l = lines.last(where: { $0.time <= t }) else { return nil }
-        return l.text.isEmpty ? "♪" : l.text
+        guard let l = lines.last(where: { $0.time <= t }), !l.text.isEmpty else { return nil }
+        return l.text
     }
 
     /// "Deceiver - 2026 Remixed & Remastered" → "Deceiver"
@@ -262,20 +262,25 @@ struct LyricLineView: View {
     @EnvironmentObject var media: MediaController
     @EnvironmentObject var lyrics: LyricsService
 
+    // La línea ocupa SIEMPRE su altura, haya letra o no: así nada se mueve.
     var body: some View {
-        if !lyrics.lines.isEmpty {
-            TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
-                let text = lyrics.line(at: media.position(at: ctx.date)) ?? "♪"
-                Text(text)
-                    .font(.system(size: 11.5, weight: .medium).italic())
-                    .foregroundStyle(media.accent)
-                    .lineLimit(1)
-                    .id(text)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    .animation(.easeOut(duration: 0.25), value: text)
+        ZStack(alignment: .leading) {
+            Color.clear
+            if !lyrics.lines.isEmpty {
+                TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
+                    let current = lyrics.line(at: media.position(at: ctx.date))
+                    let text = current ?? "♪"
+                    Text(text)
+                        .font(.system(size: 11.5, weight: .medium).italic())
+                        .foregroundStyle(current == nil ? Color.primary.opacity(0.35) : media.accent)
+                        .lineLimit(1)
+                        .id(text)
+                        .transition(.opacity)
+                        .animation(.easeInOut(duration: 0.3), value: text)
+                }
             }
-            .frame(height: 15, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, minHeight: 15, maxHeight: 15, alignment: .leading)
     }
 }
 
