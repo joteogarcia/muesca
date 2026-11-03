@@ -1,0 +1,10 @@
+# Compilados
+build/
+*.app
+*.tgz
+*.zip
+
+# macOS
+.DS_Store
+debug/
+Icon?

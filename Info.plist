@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>es</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>es</string>
+        <string>en</string>
+    </array>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Jorge Oteo</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleName</key>
+    <string>Muesca</string>
+    <key>CFBundleDisplayName</key>
+    <string>Muesca</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.jorgeoteo.notchisland</string>
+    <key>CFBundleExecutable</key>
+    <string>Muesca</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.38</string>
+    <key>CFBundleVersion</key>
+    <string>39</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSCalendarsUsageDescription</key>
+    <string>Muesca muestra tus próximos eventos en el notch.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Muesca muestra tus próximos eventos de hoy y mañana en el notch.</string>
+    <key>NSLocationUsageDescription</key>
+    <string>Muesca usa tu ubicación aproximada para mostrar el tiempo.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Muesca usa tu ubicación aproximada para mostrar el tiempo.</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Muesca conecta tus auriculares y altavoces Bluetooth emparejados para usarlos como salida de sonido.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Muesca necesita controlar Spotify y Música para mostrar la canción actual, y Outlook para crear correos con los archivos de la bandeja.</string>
+</dict>
+</plist>

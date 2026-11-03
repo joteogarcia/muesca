@@ -1,0 +1,7 @@
+"NSCalendarsUsageDescription" = "Muesca muestra tus próximos eventos en el notch.";
+"NSCalendarsFullAccessUsageDescription" = "Muesca muestra tus próximos eventos de hoy y mañana en el notch.";
+"NSLocationUsageDescription" = "Muesca usa tu ubicación aproximada para mostrar el tiempo.";
+"NSLocationWhenInUseUsageDescription" = "Muesca usa tu ubicación aproximada para mostrar el tiempo.";
+"NSAppleEventsUsageDescription" = "Muesca necesita controlar Spotify y Música para mostrar la canción actual, y Outlook para crear correos con los archivos de la bandeja.";
+"NSHumanReadableCopyright" = "© 2026 Jorge Oteo";
+"NSBluetoothAlwaysUsageDescription" = "Muesca conecta tus auriculares y altavoces Bluetooth emparejados para usarlos como salida de sonido.";
