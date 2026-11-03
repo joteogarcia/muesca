@@ -266,7 +266,7 @@ final class NotchController: NSObject, NSMenuDelegate {
             .receive(on: RunLoop.main)
             .sink { [weak self] t in
                 guard let t else { self?.lyrics.clear(); return }
-                self?.lyrics.load(title: t.title, artist: t.artist, duration: t.duration)
+                self?.lyrics.load(title: t.title, artist: t.artist, album: t.album, duration: t.duration)
             }
 
         // Tema «Según la carátula»: recolorear al cambiar de canción

@@ -152,35 +152,78 @@ final class LyricsService: ObservableObject {
     @Published private(set) var lines: [Line] = []
     private var currentKey = ""
 
-    func load(title: String, artist: String, duration: Double) {
-        let key = "\(artist)|\(title)"
+    /// Busca la letra de ESA grabación: mismo álbum y duración (±2 s).
+    /// Mejor sin letra que una letra de otra versión desincronizada.
+    func load(title: String, artist: String, album: String, duration: Double) {
+        let key = "\(artist)|\(title)|\(album)"
         guard key != currentKey else { return }
         currentKey = key
         lines = []
         guard !title.isEmpty else { return }
 
-        var comps = URLComponents(string: "https://lrclib.net/api/search")!
-        comps.queryItems = [
-            URLQueryItem(name: "track_name", value: Self.clean(title)),
-            URLQueryItem(name: "artist_name", value: artist)
-        ]
-        guard let url = comps.url else { return }
-        var req = URLRequest(url: url)
-        req.setValue("Muesca (uso personal)", forHTTPHeaderField: "User-Agent")
-        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
-            guard let data,
-                  let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
-            // Preferir la versión con letra sincronizada y duración parecida
-            let synced = arr.filter { ($0["syncedLyrics"] as? String)?.isEmpty == false }
-            let best = synced.min { a, b in
-                abs(((a["duration"] as? Double) ?? 0) - duration) < abs(((b["duration"] as? Double) ?? 0) - duration)
+        Task { [weak self] in
+            let titles = Array(NSOrderedSet(array: [title, Self.clean(title)])) as? [String] ?? [title]
+            var lrc: String?
+            // 1) Coincidencia exacta (álbum + duración) con /api/get
+            for t in titles where lrc == nil {
+                lrc = await Self.fetchExact(title: t, artist: artist, album: album, duration: duration)
             }
-            let parsed = (best?["syncedLyrics"] as? String).map(Self.parse) ?? []
-            DispatchQueue.main.async {
+            // 2) Búsqueda, aceptando solo versiones de duración casi idéntica
+            if lrc == nil {
+                lrc = await Self.fetchSearch(title: Self.clean(title), artist: artist, album: album, duration: duration)
+            }
+            let parsed = lrc.map(Self.parse) ?? []
+            await MainActor.run {
                 guard self?.currentKey == key else { return }
                 self?.lines = parsed
             }
-        }.resume()
+        }
+    }
+
+    private static func request(_ path: String, _ items: [URLQueryItem]) -> URLRequest? {
+        var comps = URLComponents(string: "https://lrclib.net/api/\(path)")!
+        comps.queryItems = items
+        guard let url = comps.url else { return nil }
+        var req = URLRequest(url: url)
+        req.setValue("Muesca (uso personal)", forHTTPHeaderField: "User-Agent")
+        req.timeoutInterval = 10
+        return req
+    }
+
+    private static func fetchExact(title: String, artist: String, album: String, duration: Double) async -> String? {
+        var items = [URLQueryItem(name: "track_name", value: title),
+                     URLQueryItem(name: "artist_name", value: artist),
+                     URLQueryItem(name: "duration", value: String(Int(duration.rounded())))]
+        if !album.isEmpty { items.append(URLQueryItem(name: "album_name", value: album)) }
+        guard let req = request("get", items),
+              let (data, resp) = try? await URLSession.shared.data(for: req),
+              (resp as? HTTPURLResponse)?.statusCode == 200,
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let lrc = obj["syncedLyrics"] as? String, !lrc.isEmpty else { return nil }
+        if let d = obj["duration"] as? Double, abs(d - duration) > 2 { return nil }
+        return lrc
+    }
+
+    private static func fetchSearch(title: String, artist: String, album: String, duration: Double) async -> String? {
+        guard let req = request("search", [URLQueryItem(name: "track_name", value: title),
+                                           URLQueryItem(name: "artist_name", value: artist)]),
+              let (data, _) = try? await URLSession.shared.data(for: req),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
+        let albumKey = album.lowercased()
+        let candidates = arr.filter { item in
+            guard let lrc = item["syncedLyrics"] as? String, !lrc.isEmpty,
+                  let d = item["duration"] as? Double else { return false }
+            return abs(d - duration) <= 2
+        }
+        // Preferir el mismo álbum; después, la duración más parecida
+        let best = candidates.min { a, b in
+            func score(_ x: [String: Any]) -> Double {
+                let sameAlbum = (x["albumName"] as? String)?.lowercased().contains(albumKey) == true && !albumKey.isEmpty
+                return abs(((x["duration"] as? Double) ?? 0) - duration) - (sameAlbum ? 10 : 0)
+            }
+            return score(a) < score(b)
+        }
+        return best?["syncedLyrics"] as? String
     }
 
     func clear() { currentKey = ""; lines = [] }

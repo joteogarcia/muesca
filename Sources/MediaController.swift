@@ -40,6 +40,7 @@ final class MediaController: ObservableObject {
         var artist: String
         var artworkURL: String
         var duration: Double
+        var album: String = ""
     }
 
     @Published private(set) var source: Source?
@@ -107,7 +108,8 @@ final class MediaController: ObservableObject {
             Double(s.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")) ?? 0
         }
 
-        let newTrack = Track(title: p[1], artist: p[2], artworkURL: p[3], duration: num(p[4]))
+        let newTrack = Track(title: p[1], artist: p[2], artworkURL: p[3], duration: num(p[4]),
+                             album: p.count > 6 ? p[6] : "")
         if source != src {
             source = src
             sourceIcon = src.icon
@@ -211,7 +213,7 @@ final class MediaController: ObservableObject {
                 if player state is stopped then return "stopped"
                 set pState to player state as string
                 set tr to current track
-                return pState & "|~|" & (name of tr) & "|~|" & (artist of tr) & "|~|" & (artwork url of tr) & "|~|" & ((duration of tr) / 1000) & "|~|" & player position
+                return pState & "|~|" & (name of tr) & "|~|" & (artist of tr) & "|~|" & (artwork url of tr) & "|~|" & ((duration of tr) / 1000) & "|~|" & player position & "|~|" & (album of tr)
             end tell
             """
         case .music:
@@ -220,7 +222,7 @@ final class MediaController: ObservableObject {
                 if player state is stopped then return "stopped"
                 set pState to player state as string
                 set tr to current track
-                return pState & "|~|" & (name of tr) & "|~|" & (artist of tr) & "|~|" & "" & "|~|" & (duration of tr) & "|~|" & player position
+                return pState & "|~|" & (name of tr) & "|~|" & (artist of tr) & "|~|" & "" & "|~|" & (duration of tr) & "|~|" & player position & "|~|" & (album of tr)
             end tell
             """
         }
