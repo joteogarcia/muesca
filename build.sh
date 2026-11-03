@@ -2,6 +2,7 @@
 # Compila Muesca.app. Requiere las Command Line Tools de Xcode:  xcode-select --install
 #   ./build.sh             → compila en ./build/Muesca.app
 #   ./build.sh --install   → además la instala en /Applications y la abre
+#   ./build.sh --universal → app universal (chip Apple + Intel) y Muesca-<versión>.zip para publicar
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -13,12 +14,33 @@ trap 'rm -rf "$WORK"' EXIT
 APP="$WORK/Muesca.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-echo "→ Compilando…"
-swiftc -O -parse-as-library \
-  -target "$(uname -m)-apple-macos13.0" \
-  -framework AppKit -framework SwiftUI -framework IOKit -framework CoreImage -framework EventKit -framework CoreLocation -framework CoreAudio -framework AVKit -framework IOBluetooth -framework ApplicationServices -framework CoreMediaIO \
-  Sources/*.swift \
-  -o "$APP/Contents/MacOS/Muesca"
+INSTALL=0; UNIVERSAL=0
+for arg in "$@"; do
+  case "$arg" in
+    --install) INSTALL=1 ;;
+    --universal) UNIVERSAL=1 ;;
+  esac
+done
+
+FRAMEWORKS=(-framework AppKit -framework SwiftUI -framework IOKit -framework CoreImage -framework EventKit
+            -framework CoreLocation -framework CoreAudio -framework AVKit -framework IOBluetooth
+            -framework ApplicationServices -framework CoreMediaIO)
+
+compile() {   # $1 = arquitectura (arm64 | x86_64), $2 = salida
+  swiftc -O -parse-as-library -target "$1-apple-macos13.0" "${FRAMEWORKS[@]}" Sources/*.swift -o "$2"
+}
+
+if [[ $UNIVERSAL == 1 ]]; then
+  echo "→ Compilando para chip Apple (arm64)…"
+  compile arm64 "$WORK/Muesca-arm64"
+  echo "→ Compilando para Intel (x86_64)…"
+  compile x86_64 "$WORK/Muesca-x86_64"
+  lipo -create -output "$APP/Contents/MacOS/Muesca" "$WORK/Muesca-arm64" "$WORK/Muesca-x86_64"
+  echo "→ App universal: $(lipo -archs "$APP/Contents/MacOS/Muesca")"
+else
+  echo "→ Compilando…"
+  compile "$(uname -m)" "$APP/Contents/MacOS/Muesca"
+fi
 
 cp Info.plist "$APP/Contents/Info.plist"
 cp -R Resources/*.lproj "$APP/Contents/Resources/"
@@ -44,7 +66,15 @@ echo "→ Firma verificada"
 rm -rf build && mkdir -p build
 ditto "$APP" build/Muesca.app
 
-if [[ "${1:-}" == "--install" ]]; then
+if [[ $UNIVERSAL == 1 ]]; then
+  VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Info.plist)
+  ZIP="Muesca-$VERSION.zip"
+  rm -f "$ZIP"
+  ditto -c -k --keepParent "$APP" "$ZIP"
+  echo "→ Paquete para publicar: $ZIP"
+fi
+
+if [[ $INSTALL == 1 ]]; then
   echo "→ Instalando en /Applications…"
   pkill -x Muesca 2>/dev/null || true
   rm -rf /Applications/Muesca.app

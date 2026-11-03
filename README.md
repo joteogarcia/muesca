@@ -37,7 +37,7 @@ Muesca convierte el notch del MacBook —o el centro de la barra de menús en un
 **A tu medida**: MacBook, monitores externos o todas las pantallas; siempre visible u oculta hasta pasar el ratón; idioma automático (español o inglés); abrir al iniciar sesión; ayuda integrada.
 
 ### Requisitos
-- macOS 13 o posterior (probada en Mac con chip Apple).
+- macOS 13 o posterior, en Mac con chip Apple o con procesador Intel (la app es universal).
 - Para compilarla: las Command Line Tools de Xcode (`xcode-select --install`). **No hace falta Xcode.**
 
 ### Instalación
@@ -49,6 +49,7 @@ cd muesca
 ./build.sh --install
 ```
 El script compila, firma, copia la app a Aplicaciones y la abre.
+Para generar la app universal (chip Apple + Intel) y su `.zip`: `./build.sh --universal`.
 
 **Opción B — Descargar la app**
 Descarga el `.zip` de la última versión en [Releases](https://github.com/joteogarcia/muesca/releases). Como no está firmada con una cuenta de desarrollador de Apple, la primera vez macOS mostrará un aviso: ve a **Ajustes del Sistema → Privacidad y seguridad** y pulsa **«Abrir igualmente»**. Solo hay que hacerlo una vez.
@@ -93,7 +94,7 @@ git clone https://github.com/joteogarcia/muesca.git
 cd muesca
 ./build.sh --install
 ```
-Requires macOS 13+ and the Xcode Command Line Tools (`xcode-select --install`). No Xcode needed. A prebuilt `.zip` is available under [Releases](https://github.com/joteogarcia/muesca/releases); since it isn't notarized, open it once via **System Settings → Privacy & Security → Open Anyway**.
+Universal app (Apple silicon and Intel). Requires macOS 13+ and the Xcode Command Line Tools (`xcode-select --install`). No Xcode needed. A prebuilt `.zip` is available under [Releases](https://github.com/joteogarcia/muesca/releases); since it isn't notarized, open it once via **System Settings → Privacy & Security → Open Anyway**.
 
 ### Privacy
 Everything runs locally. No accounts, no analytics. Network access is limited to Open-Meteo / MET Norway (weather) and LRCLIB (lyrics).
