@@ -3,6 +3,10 @@ import SwiftUI
 import CoreAudio
 import CoreMediaIO
 import IOKit.pwr_mgt
+import NaturalLanguage
+#if canImport(Translation)
+import Translation
+#endif
 
 // Funciones de prueba de la versión 1.31. Cada bloque es independiente:
 // para quitar una, se borra su sección y su uso en NotchView / NotchController.
@@ -152,6 +156,18 @@ final class LyricsService: ObservableObject {
     @Published private(set) var lines: [Line] = []
     private var currentKey = ""
 
+    // Traducción de la letra al idioma de Muesca (traductor de Apple, en el propio Mac)
+    static var translateEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: "translateLyrics") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "translateLyrics") }
+    }
+    /// Índice de línea → traducción
+    @Published private(set) var translations: [Int: String] = [:]
+    /// La canción está en otro idioma: se reserva la segunda línea (fija durante toda la canción)
+    @Published private(set) var translationExpected = false
+    /// TranslationSession.Configuration (macOS 15+), guardada sin tipo para compilar en macOS 13
+    @Published private(set) var translationConfig: Any?
+
     /// Busca la letra de ESA grabación: mismo álbum y duración (±2 s).
     /// Mejor sin letra que una letra de otra versión desincronizada.
     func load(title: String, artist: String, album: String, duration: Double) {
@@ -176,6 +192,7 @@ final class LyricsService: ObservableObject {
             await MainActor.run {
                 guard self?.currentKey == key else { return }
                 self?.lines = parsed
+                self?.prepareTranslation()
             }
         }
     }
@@ -226,14 +243,94 @@ final class LyricsService: ObservableObject {
         return best?["syncedLyrics"] as? String
     }
 
-    func clear() { currentKey = ""; lines = [] }
+    func clear() { currentKey = ""; lines = []; resetTranslation() }
 
     func line(at position: Double) -> String? {
+        guard let i = index(at: position) else { return nil }
+        return lines[i].text
+    }
+
+    /// Índice de la línea que suena (nil si es un hueco instrumental)
+    func index(at position: Double) -> Int? {
         guard !lines.isEmpty else { return nil }
         let t = position + 0.3
-        guard let l = lines.last(where: { $0.time <= t }), !l.text.isEmpty else { return nil }
-        return l.text
+        guard let i = lines.lastIndex(where: { $0.time <= t }), !lines[i].text.isEmpty else { return nil }
+        return i
     }
+
+    func translation(at position: Double) -> String? {
+        guard let i = index(at: position) else { return nil }
+        return translations[i]
+    }
+
+    // MARK: Traducción
+
+    private func resetTranslation() {
+        translations = [:]
+        translationExpected = false
+        translationConfig = nil
+    }
+
+    /// Detecta el idioma de la letra y, si no es el de Muesca, la traduce entera.
+    func prepareTranslation() {
+        resetTranslation()
+        guard Self.translateEnabled, !lines.isEmpty else { return }
+        let sample = lines.map(\.text).filter { !$0.isEmpty }.joined(separator: "\n")
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(sample)
+        guard let lang = recognizer.dominantLanguage, lang != .undetermined else { return }
+        let source = lang.rawValue                          // "en", "fr"…
+        let target = AppLanguage.resolved                   // "es" o "en"
+        guard !source.hasPrefix(target) else { return }     // ya está en tu idioma
+        #if canImport(Translation)
+        if #available(macOS 15.0, *) {
+            translationExpected = true
+            let key = currentKey
+            Task { [weak self] in await self?.startTranslation(source: source, target: target, key: key) }
+        }
+        #endif
+    }
+
+    #if canImport(Translation)
+    @available(macOS 15.0, *)
+    @MainActor
+    private func startTranslation(source: String, target: String, key: String) async {
+        let src = Locale.Language(identifier: source), tgt = Locale.Language(identifier: target)
+        let status = await LanguageAvailability().status(from: src, to: tgt)
+        guard key == currentKey else { return }
+        switch status {
+        case .unsupported:
+            translationExpected = false
+        case .installed:
+            if #available(macOS 26.0, *) {
+                // Idiomas ya descargados: se traduce sin depender de ninguna vista
+                await translate(with: TranslationSession(installedSource: src, target: tgt), key: key)
+            } else {
+                translationConfig = TranslationSession.Configuration(source: src, target: tgt)
+            }
+        default:
+            // Hay que descargar el idioma: lo gestiona la vista (aviso de macOS)
+            translationConfig = TranslationSession.Configuration(source: src, target: tgt)
+        }
+    }
+
+    @available(macOS 15.0, *)
+    @MainActor
+    func translate(with session: TranslationSession, key: String? = nil) async {
+        let key = key ?? currentKey
+        let requests = lines.enumerated().compactMap { i, l in
+            l.text.isEmpty ? nil : TranslationSession.Request(sourceText: l.text, clientIdentifier: String(i))
+        }
+        guard !requests.isEmpty,
+              let responses = try? await session.translations(from: requests),
+              key == currentKey else { return }
+        var out: [Int: String] = [:]
+        for r in responses {
+            if let id = r.clientIdentifier, let i = Int(id) { out[i] = r.targetText }
+        }
+        withAnimation(.easeInOut(duration: 0.3)) { translations = out }
+    }
+    #endif
 
     /// "Deceiver - 2026 Remixed & Remastered" → "Deceiver"
     static func clean(_ title: String) -> String {
@@ -262,25 +359,65 @@ struct LyricLineView: View {
     @EnvironmentObject var media: MediaController
     @EnvironmentObject var lyrics: LyricsService
 
-    // La línea ocupa SIEMPRE su altura, haya letra o no: así nada se mueve.
+    // Las líneas ocupan SIEMPRE su altura, haya letra o no: así nada se mueve.
+    // La de la traducción solo se reserva si la canción está en otro idioma.
     var body: some View {
-        ZStack(alignment: .leading) {
-            Color.clear
-            if !lyrics.lines.isEmpty {
-                TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
-                    let current = lyrics.line(at: media.position(at: ctx.date))
-                    let text = current ?? "♪"
-                    Text(text)
-                        .font(.system(size: 11.5, weight: .medium).italic())
-                        .foregroundStyle(current == nil ? Color.primary.opacity(0.35) : media.accent)
-                        .lineLimit(1)
-                        .id(text)
-                        .transition(.opacity)
-                        .animation(.easeInOut(duration: 0.3), value: text)
+        VStack(alignment: .leading, spacing: 1) {
+            ZStack(alignment: .leading) {
+                Color.clear
+                if !lyrics.lines.isEmpty {
+                    TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
+                        let current = lyrics.line(at: media.position(at: ctx.date))
+                        let text = current ?? "♪"
+                        Text(text)
+                            .font(.system(size: 11.5, weight: .medium).italic())
+                            .foregroundStyle(current == nil ? Color.primary.opacity(0.35) : media.accent)
+                            .lineLimit(1)
+                            .id(text)
+                            .transition(.opacity)
+                            .animation(.easeInOut(duration: 0.3), value: text)
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, minHeight: 15, maxHeight: 15, alignment: .leading)
+
+            if lyrics.translationExpected {
+                ZStack(alignment: .leading) {
+                    Color.clear
+                    TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
+                        let text = lyrics.translation(at: media.position(at: ctx.date)) ?? ""
+                        Text(text)
+                            .font(.system(size: 10.5).italic())
+                            .foregroundStyle(Color.primary.opacity(0.5))
+                            .lineLimit(1)
+                            .id(text)
+                            .transition(.opacity)
+                            .animation(.easeInOut(duration: 0.3), value: text)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 13, maxHeight: 13, alignment: .leading)
+            }
         }
-        .frame(maxWidth: .infinity, minHeight: 15, maxHeight: 15, alignment: .leading)
+        .background { LyricsTranslationHost() }
+    }
+}
+
+/// Lanza la traducción cuando hace falta descargar el idioma (macOS muestra su aviso).
+struct LyricsTranslationHost: View {
+    @EnvironmentObject var lyrics: LyricsService
+
+    var body: some View {
+        #if canImport(Translation)
+        if #available(macOS 15.0, *) {
+            Color.clear.translationTask(lyrics.translationConfig as? TranslationSession.Configuration) { session in
+                await lyrics.translate(with: session)
+            }
+        } else {
+            Color.clear
+        }
+        #else
+        Color.clear
+        #endif
     }
 }
 

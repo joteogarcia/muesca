@@ -441,6 +441,11 @@ final class NotchController: NSObject, NSMenuDelegate {
         }
         timerItem.submenu = tm
         menu.addItem(timerItem)
+        let tr = NSMenuItem(title: L("menu.translateLyrics"), action: #selector(toggleTranslateLyrics), keyEquivalent: "")
+        tr.target = self
+        tr.state = LyricsService.translateEnabled ? .on : .off
+        tr.image = NSImage(systemSymbolName: "character.bubble", accessibilityDescription: nil)
+        menu.addItem(tr)
 
         menu.addItem(.separator())
         menu.addItem(header(L("menu.visibility")))
@@ -541,6 +546,11 @@ final class NotchController: NSObject, NSMenuDelegate {
     @objc private func toggleCaffeine() { caffeine.toggle() }
     @objc private func startTimer(_ sender: NSMenuItem) { countdown.start(minutes: sender.tag) }
     @objc private func cancelTimer() { countdown.cancel() }
+
+    @objc private func toggleTranslateLyrics() {
+        LyricsService.translateEnabled.toggle()
+        lyrics.prepareTranslation()
+    }
 
     @objc private func toggleReplaceHUD() {
         MediaKeyTap.enabled.toggle()

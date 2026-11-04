@@ -432,9 +432,11 @@ struct ExpandedView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+                // Separador a toda la altura de la isla abierta
                 Rectangle()
-                    .fill(Color.primary.opacity(0.1))
-                    .frame(width: 1, height: 150)
+                    .fill(Color.primary.opacity(0.12))
+                    .frame(width: 1)
+                    .frame(maxHeight: .infinity)
 
                 // 60 % música · 40 % agenda
                 AgendaView()
