@@ -43,19 +43,20 @@ struct NotchView: View {
     @EnvironmentObject var shelf: ShelfStore
     @EnvironmentObject var alerts: AlertCenter
     @EnvironmentObject var timer: TimerController
+    @EnvironmentObject var denon: DenonLink
     @Namespace private var ns
 
     var body: some View {
         let hud = hudController.active
         let sysAlert = alerts.alert
         let meeting = calendar.upcoming != nil || sysAlert != nil || timer.running
-        let size = state.islandSize(mediaActive: media.isActive, hud: hud, meeting: meeting)
+        let size = state.islandSize(mediaActive: media.isActive || denon.isActive, hud: hud, meeting: meeting)
         let top: CGFloat = state.expanded ? 14 : 6
         let bottom: CGFloat = state.expanded ? 30 : (state.hasNotch ? 12 : 11)
         let shape = NotchShape(topRadius: top, bottomRadius: bottom)
         let hidden = state.isHidden(hud: hud || meeting)
         // El halo sobra cuando toda la isla ya va teñida con la carátula
-        let halo = state.expanded && state.tab == .music && media.track != nil && state.bgGradient == nil
+        let halo = state.expanded && state.tab == .music && media.track != nil && !denon.isActive && state.bgGradient == nil
 
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
@@ -90,6 +91,11 @@ struct NotchView: View {
                 } else if !state.hasNotch {
                     PillView(ns: ns, height: size.height)
                         .padding(.horizontal, top + 10)
+                        .transition(.opacity)
+                } else if denon.isActive {
+                    // Radio o tocadiscos del Denon (aviso de Denon Remote): tiene prioridad
+                    DenonActivityView(height: size.height)
+                        .padding(.horizontal, top + 8)
                         .transition(.opacity)
                 } else if media.isActive {
                     LiveActivityView(ns: ns, height: size.height)
@@ -170,13 +176,16 @@ struct LiveActivityView: View {
 /// Pantallas sin notch: píldora con tiempo + hora (o música si suena).
 struct PillView: View {
     @EnvironmentObject var media: MediaController
+    @EnvironmentObject var denon: DenonLink
     @EnvironmentObject var weather: WeatherService
     let ns: Namespace.ID
     let height: CGFloat
 
     var body: some View {
         HStack(spacing: 6) {
-            if media.isActive {
+            if denon.isActive {
+                DenonPillContent()
+            } else if media.isActive {
                 ArtworkView(image: media.artwork, size: 18, corner: 5)
                     .matchedGeometryEffect(id: "artwork", in: ns)
                     .opensOnClick(L("media.open", media.source?.displayName ?? "")) { media.openSourceApp() }
@@ -290,6 +299,7 @@ struct CompactBattery: View {
 struct ExpandedView: View {
     @EnvironmentObject var state: NotchState
     @EnvironmentObject var media: MediaController
+    @EnvironmentObject var denon: DenonLink
     @EnvironmentObject var battery: BatteryMonitor
     let ns: Namespace.ID
 
@@ -398,7 +408,13 @@ struct ExpandedView: View {
                             .transition(.opacity)
                     } else {
                         VStack(alignment: .leading, spacing: 18) {
-                            if media.track != nil { MediaCard(ns: ns) } else { EmptyMediaView() }
+                            if denon.isActive {
+                                DenonCard()
+                            } else if media.track != nil {
+                                MediaCard(ns: ns)
+                            } else {
+                                EmptyMediaView()
+                            }
                             HStack(spacing: 10) {
                                 OutputChip()
                                     .background(alignment: .trailing) {

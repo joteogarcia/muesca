@@ -145,6 +145,7 @@ final class IslandWindow {
             .environmentObject(controller.caffeine)
             .environmentObject(controller.countdown)
             .environmentObject(controller.lyrics)
+            .environmentObject(controller.denon)
             .environment(\.locale, AppLanguage.locale)
         let host = FirstMouseHostingView(rootView: AnyView(root))
         if #available(macOS 13.0, *) { host.sizingOptions = [] }
@@ -178,7 +179,7 @@ final class IslandWindow {
     }
 
     func tick(mouse: NSPoint) {
-        let size = state.islandSize(mediaActive: controller.media.isActive,
+        let size = state.islandSize(mediaActive: controller.media.isActive || controller.denon.isActive,
                                     hud: controller.hud.active,
                                     meeting: controller.calendar.upcoming != nil || controller.system.alerts.alert != nil
                                         || controller.countdown.running)
@@ -231,6 +232,7 @@ final class NotchController: NSObject, NSMenuDelegate {
     let caffeine = CaffeineController()
     let countdown = TimerController()
     let lyrics = LyricsService()
+    let denon = DenonLink()
     private var trackSub: AnyCancellable?
     private(set) lazy var brightness = BrightnessMonitor(hud: hud)
     private lazy var keyTap = MediaKeyTap(audio: audio, brightness: brightness)
@@ -260,6 +262,7 @@ final class NotchController: NSObject, NSMenuDelegate {
         keyTap.update()
         system.start()
         privacy.start()
+        denon.start()
         countdown.alerts = system.alerts
         // Letras: buscar al cambiar de canción
         trackSub = media.$track
