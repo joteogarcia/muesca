@@ -287,6 +287,13 @@ final class NotchController: NSObject, NSMenuDelegate {
         NotificationCenter.default.addObserver(forName: .showOutputMenu, object: nil, queue: .main) { [weak self] _ in
             self?.popUpOutputMenu()
         }
+        // Denon Remote: muestra en la isla el volumen del amplificador Denon
+        DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.jorgeoteo.denonremote.volume"), object: nil, queue: .main
+        ) { [weak self] note in
+            guard let info = note.userInfo, let level = info["level"] as? Double else { return }
+            self?.hud.show(.volume, level: Float(max(0, min(1, level))), muted: info["muted"] as? Bool ?? false)
+        }
 
         let t = Timer(timeInterval: 1.0 / 20.0, repeats: true) { [weak self] _ in
             guard let self else { return }
