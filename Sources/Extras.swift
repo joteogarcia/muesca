@@ -365,7 +365,7 @@ final class LyricsService: ObservableObject {
     static func parse(_ lrc: String) -> [Line] {
         let regex = try? NSRegularExpression(pattern: #"\[(\d+):(\d+(?:\.\d+)?)\](.*)"#)
         var out: [Line] = []
-        for raw in lrc.split(separator: "\n") {
+        for raw in lrc.split(whereSeparator: \.isNewline) {   // admite \n y \r\n
             let s = String(raw)
             guard let m = regex?.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)),
                   let mr = Range(m.range(at: 1), in: s), let sr = Range(m.range(at: 2), in: s),
