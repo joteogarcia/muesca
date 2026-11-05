@@ -226,7 +226,7 @@ struct DayStripView: View {
                 )
                 .animation(.easeOut(duration: 0.14), value: calendar.stripHoverX)
             }
-            .frame(height: 50)
+            .frame(height: 44)
             // Deslizar con dos dedos: cada ~40 pt, un día
             .background(StripScrollCatcher { step in calendar.shiftDay(step) })
 
@@ -237,25 +237,71 @@ struct DayStripView: View {
     }
 
     private var dayEvents: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            if calendar.dayItems.isEmpty {
+        let items = calendar.dayItems
+        return Group {
+            if items.isEmpty {
                 Text(L("month.noEvents"))
                     .font(.system(size: 12))
                     .foregroundStyle(Color.primary.opacity(0.55))
+            } else if items.count <= 2 {
+                // Pocos eventos: filas grandes (título y hora debajo), como siempre
+                VStack(alignment: .leading, spacing: 7) {
+                    ForEach(items) { item in EventRow(item: item) }
+                }
             } else {
-                ForEach(calendar.dayItems.prefix(2)) { item in
-                    EventRow(item: item)
+                // Muchos: filas compactas de una línea y lista desplazable en vertical
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        ForEach(items) { item in CompactEventRow(item: item) }
+                    }
+                    .padding(.bottom, 10)
                 }
-                if calendar.dayItems.count > 2 {
-                    Text(L("month.more", calendar.dayItems.count - 2))
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Color.primary.opacity(0.5))
-                }
+                .frame(maxHeight: .infinity, alignment: .top)
+                // Degradado abajo: indica que hay más si se desliza
+                .mask(
+                    VStack(spacing: 0) {
+                        Color.black
+                        LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 14)
+                    }
+                )
             }
         }
         .id(calendar.stripDay)
         .transition(.opacity)
         .animation(.easeInOut(duration: 0.2), value: calendar.stripDay)
+    }
+}
+
+/// Evento en una sola línea: «10:00  Reunión con Planeta»
+struct CompactEventRow: View {
+    @EnvironmentObject var calendar: CalendarService
+    let item: CalendarService.Item
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 7) {
+            RoundedRectangle(cornerRadius: 1.25)
+                .fill(item.color)
+                .frame(width: 2.5, height: 14)
+            Text(item.isAllDay ? L("agenda.allDayShort") : item.start.formatted(date: .omitted, time: .shortened))
+                .font(.system(size: 10.5, weight: item.isNow ? .bold : .medium).monospacedDigit())
+                .foregroundStyle(item.isNow ? item.color : Color.primary.opacity(0.55))
+                .frame(width: 38, alignment: .leading)
+                .lineLimit(1)
+            Text(item.title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.primary)
+                .lineLimit(1)
+            Spacer(minLength: 2)
+            if item.joinURL != nil {
+                Button { calendar.join(item) } label: {
+                    Image(systemName: "video.fill").font(.system(size: 9, weight: .semibold))
+                }
+                .buttonStyle(IconButtonStyle(size: 20))
+                .help(L("meet.joinHelp"))
+            }
+        }
+        .frame(height: 18)
     }
 }
 
@@ -280,12 +326,6 @@ struct StripDayCell: View {
                     .foregroundStyle(isToday ? (selected ? Color.white : Color.red) : Color.primary)
                     .frame(width: 22, height: 22)
                     .background(Circle().fill(isToday && selected ? Color.red : Color.clear))
-                HStack(spacing: 2) {
-                    ForEach(Array(dots.enumerated()), id: \.offset) { _, c in
-                        Circle().fill(c).frame(width: 3.5, height: 3.5)
-                    }
-                }
-                .frame(height: 4)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 4)

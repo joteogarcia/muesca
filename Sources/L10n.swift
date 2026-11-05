@@ -227,6 +227,7 @@ enum Strings {
         "agenda.today": "Hoy",
         "agenda.tomorrow": "Mañana",
         "agenda.allDay": "Todo el día",
+        "agenda.allDayShort": "Día",
         "agenda.nowUntil": "Ahora · hasta las %@",
         "agenda.untitled": "(Sin título)",
         // Tiempo
@@ -384,6 +385,7 @@ enum Strings {
         "agenda.today": "Today",
         "agenda.tomorrow": "Tomorrow",
         "agenda.allDay": "All day",
+        "agenda.allDayShort": "All day",
         "agenda.nowUntil": "Now · until %@",
         "agenda.untitled": "(No title)",
         "wx.0": "Clear", "wx.1": "Mostly clear", "wx.2": "Partly cloudy",
