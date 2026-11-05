@@ -155,6 +155,7 @@ final class LyricsService: ObservableObject {
     struct Line { let time: Double; let text: String }
     @Published private(set) var lines: [Line] = []
     private var currentKey = ""
+    private var retries: [String: Int] = [:]
 
     // Traducción de la letra al idioma de Muesca (traductor de Apple, en el propio Mac)
     static var translateEnabled: Bool {
@@ -189,10 +190,21 @@ final class LyricsService: ObservableObject {
                 lrc = await Self.fetchSearch(title: Self.clean(title), artist: artist, album: album, duration: duration)
             }
             let parsed = lrc.map(Self.parse) ?? []
+            Log.write("Letra: \(artist) – \(title) [\(album), \(Int(duration.rounded())) s] → " +
+                      (lrc == nil ? "sin letra" : "\(parsed.count) líneas"))
             await MainActor.run {
-                guard self?.currentKey == key else { return }
-                self?.lines = parsed
-                self?.prepareTranslation()
+                guard let self, self.currentKey == key else { return }
+                self.lines = parsed
+                self.prepareTranslation()
+                // Si no llegó (p. ej. fallo de red), reintenta un par de veces más tarde
+                if parsed.isEmpty, (self.retries[key] ?? 0) < 2 {
+                    self.retries[key, default: 0] += 1
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in
+                        guard let self, self.currentKey == key, self.lines.isEmpty else { return }
+                        self.currentKey = ""
+                        self.load(title: title, artist: artist, album: album, duration: duration)
+                    }
+                }
             }
         }
     }
