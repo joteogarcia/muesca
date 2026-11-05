@@ -62,7 +62,7 @@ extension CalendarService {
         withAnimation(.easeInOut(duration: 0.2)) { selectedDay = date }
     }
 
-    private func loadDay(_ date: Date) {
+    func loadDay(_ date: Date) {
         let cal = gridCalendar
         let start = cal.startOfDay(for: date)
         guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return }

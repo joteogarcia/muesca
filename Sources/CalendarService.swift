@@ -30,6 +30,15 @@ final class CalendarService: ObservableObject {
     }
     @Published var monthAnchor = Date()
     @Published var selectedDay: Date?
+    /// Posición del ratón sobre la tira de días (efecto lupa); nil si no está encima
+    @Published var stripHoverX: CGFloat?
+    /// Arrastre de la tira: desplazamiento sobrante (< medio día) y días ya recorridos
+    @Published var stripDrag: CGFloat = 0
+    @Published var stripDragging = false
+    var stripDragSteps = 0
+    var stripDragLastX: CGFloat = 0
+    var stripDragLastTime: Date = .distantPast
+    var stripVelocity: CGFloat = 0
     /// Colores de calendario con eventos, por día (inicio del día).
     @Published var monthDots: [Date: [Color]] = [:]
     @Published var dayItems: [Item] = []

@@ -802,6 +802,8 @@ struct AgendaView: View {
             HStack(spacing: 4) {
                 if calendar.agendaMode == .month && calendar.access == .granted {
                     MonthHeader()
+                } else if calendar.access == .granted {
+                    DayStripHeader()
                 } else {
                     Text(L("agenda.title"))
                         .font(.system(size: 11, weight: .semibold))
@@ -814,9 +816,14 @@ struct AgendaView: View {
                             calendar.agendaMode = calendar.agendaMode == .month ? .upcoming : .month
                             calendar.selectedDay = nil
                         }
-                        calendar.loadMonth()
+                        if calendar.agendaMode == .month {
+                            calendar.monthAnchor = Date()
+                            calendar.loadMonth()
+                        } else {
+                            calendar.moveStrip(to: Date())
+                        }
                     } label: {
-                        Image(systemName: calendar.agendaMode == .month ? "list.bullet" : "square.grid.3x3")
+                        Image(systemName: calendar.agendaMode == .month ? "calendar.day.timeline.left" : "square.grid.3x3")
                             .font(.system(size: 12, weight: .semibold))
                     }
                     .buttonStyle(IconButtonStyle(size: 26))
@@ -833,15 +840,7 @@ struct AgendaView: View {
             case .granted where calendar.agendaMode == .month:
                 MonthGridView()
             case .granted:
-                if calendar.items.isEmpty {
-                    Text(L("agenda.empty"))
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.primary.opacity(0.55))
-                } else {
-                    ForEach(calendar.items.prefix(3)) { item in
-                        EventRow(item: item)
-                    }
-                }
+                DayStripView()
             case .notDetermined:
                 Text(L("agenda.needAccess"))
                     .font(.system(size: 12))
