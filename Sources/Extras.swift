@@ -543,12 +543,20 @@ struct StatusIndicators: View {
     @EnvironmentObject var privacy: PrivacyMonitor
     @EnvironmentObject var caffeine: CaffeineController
 
+    /// Ancho que ocupan los indicadores visibles (0 si no hay ninguno)
+    static func width(camera: Bool, mic: Bool, cup: Bool) -> CGFloat {
+        let items: [CGFloat] = [cup ? 9 : 0, camera ? 6 : 0, mic ? 6 : 0].filter { $0 > 0 }
+        guard !items.isEmpty else { return 0 }
+        return items.reduce(0, +) + CGFloat(items.count - 1) * 3
+    }
+
     var body: some View {
         HStack(spacing: 3) {
             if caffeine.active {
                 Image(systemName: "cup.and.saucer.fill")
                     .font(.system(size: 7.5, weight: .bold))
                     .foregroundStyle(Color.primary.opacity(0.8))
+                    .frame(width: 9)
             }
             if privacy.cameraInUse {
                 Circle().fill(Color.green).frame(width: 6, height: 6)

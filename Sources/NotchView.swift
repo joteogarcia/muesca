@@ -44,6 +44,8 @@ struct NotchView: View {
     @EnvironmentObject var alerts: AlertCenter
     @EnvironmentObject var timer: TimerController
     @EnvironmentObject var denon: DenonLink
+    @EnvironmentObject var privacy: PrivacyMonitor
+    @EnvironmentObject var caffeine: CaffeineController
     @Namespace private var ns
 
     var body: some View {
@@ -56,6 +58,11 @@ struct NotchView: View {
         let shape = NotchShape(topRadius: top, bottomRadius: bottom)
         let hidden = state.isHidden(hud: hud || meeting)
         // El halo sobra cuando toda la isla ya va teñida con la carátula
+        // Hueco a cada lado para los puntos de micro/cámara y la taza, para que
+        // no se monten encima de la batería ni del aviso de reunión.
+        let indicatorWidth = StatusIndicators.width(camera: privacy.cameraInUse, mic: privacy.micInUse,
+                                                    cup: caffeine.active)
+        let side: CGFloat = (state.expanded || hidden || indicatorWidth == 0) ? 0 : indicatorWidth + 5
         let halo = state.expanded && state.tab == .music && media.track != nil && !denon.isActive && state.bgGradient == nil
 
         VStack(spacing: 0) {
@@ -107,14 +114,16 @@ struct NotchView: View {
                         .transition(.opacity)
                 }
             }
-            .frame(width: size.width + top * 2, height: size.height, alignment: .top)
+            .padding(.horizontal, side)
+            .frame(width: size.width + top * 2 + side * 2, height: size.height, alignment: .top)
             .overlay(alignment: .trailing) {
-                if !state.expanded && !hidden {
+                if side > 0 {
                     StatusIndicators()
-                        .padding(.trailing, top + 1)
+                        .padding(.trailing, top + 3)
                         .frame(height: size.height)
                 }
             }
+            .animation(.easeInOut(duration: 0.25), value: side)
             .background(
                 ZStack {
                     IslandBackground()
