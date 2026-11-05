@@ -258,6 +258,16 @@ final class LyricsService: ObservableObject {
         return i
     }
 
+    /// Avance (0…1) dentro de la línea que suena, para desplazar las frases largas
+    /// al ritmo del canto: arranca quieta, avanza y termina antes de la siguiente.
+    func progress(at position: Double) -> Double {
+        guard let i = index(at: position) else { return 0 }
+        let start = lines[i].time
+        let end = i + 1 < lines.count ? lines[i + 1].time : start + 5
+        let span = max(end - start - 1.6, 0.8)
+        return min(max((position + 0.3 - start - 0.8) / span, 0), 1)
+    }
+
     func translation(at position: Double) -> String? {
         guard let i = index(at: position) else { return nil }
         return translations[i]
@@ -381,10 +391,10 @@ struct LyricLineView: View {
                     TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
                         let current = lyrics.line(at: media.position(at: ctx.date))
                         let text = current ?? "♪"
-                        Text(text)
-                            .font(.system(size: 11.5, weight: .medium).italic())
+                        let pos = media.position(at: ctx.date)
+                        ScrollingLyricText(text: text, size: 11.5, weight: .medium,
+                                           progress: current == nil ? 0 : lyrics.progress(at: pos))
                             .foregroundStyle(current == nil ? Color.primary.opacity(0.35) : media.accent)
-                            .lineLimit(1)
                             .id(text)
                             .transition(.opacity)
                             .animation(.easeInOut(duration: 0.3), value: text)
@@ -398,10 +408,10 @@ struct LyricLineView: View {
                     Color.clear
                     TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
                         let text = lyrics.translation(at: media.position(at: ctx.date)) ?? ""
-                        Text(text)
-                            .font(.system(size: 10.5).italic())
+                        let pos = media.position(at: ctx.date)
+                        ScrollingLyricText(text: text, size: 10.5, weight: .regular,
+                                           progress: lyrics.progress(at: pos))
                             .foregroundStyle(Color.primary.opacity(0.5))
-                            .lineLimit(1)
                             .id(text)
                             .transition(.opacity)
                             .animation(.easeInOut(duration: 0.3), value: text)
@@ -411,6 +421,51 @@ struct LyricLineView: View {
             }
         }
         .background { LyricsTranslationHost() }
+    }
+}
+
+/// Frase de la letra que, si no cabe, primero se encoge un poco y, si aun así
+/// no cabe, se desliza de izquierda a derecha al ritmo de la canción.
+struct ScrollingLyricText: View {
+    let text: String
+    let size: CGFloat
+    let weight: Font.Weight
+    let progress: Double
+
+    var body: some View {
+        GeometryReader { g in
+            let w = g.size.width
+            let natural = Self.width(text, size: size, weight: weight)
+            // Hasta un 15 % más pequeña antes de desplazar
+            let scale = natural > w ? max(w / natural, 0.85) : 1
+            let fontSize = size * scale
+            let textW = Self.width(text, size: fontSize, weight: weight)
+            let overflow = max(textW - w, 0)
+            let eased = progress * progress * (3 - 2 * progress)      // suave al empezar y al acabar
+            Text(text)
+                .font(.system(size: fontSize, weight: weight).italic())
+                .lineLimit(1)
+                .fixedSize()
+                .offset(x: -overflow * eased)
+                .animation(.linear(duration: 0.25), value: eased)
+                .frame(width: w, height: g.size.height, alignment: .leading)
+                .clipped()
+                .mask(
+                    LinearGradient(stops: [
+                        .init(color: overflow > 0 && eased > 0.01 ? .clear : .black, location: 0),
+                        .init(color: .black, location: 0.05),
+                        .init(color: .black, location: 0.93),
+                        .init(color: overflow > 0 && eased < 0.99 ? .clear : .black, location: 1)
+                    ], startPoint: .leading, endPoint: .trailing)
+                )
+        }
+    }
+
+    static func width(_ text: String, size: CGFloat, weight: Font.Weight) -> CGFloat {
+        let nsWeight: NSFont.Weight = weight == .medium ? .medium : .regular
+        let base = NSFont.systemFont(ofSize: size, weight: nsWeight)
+        let font = NSFontManager.shared.convert(base, toHaveTrait: .italicFontMask)
+        return (text as NSString).size(withAttributes: [.font: font]).width + 3
     }
 }
 
