@@ -349,9 +349,21 @@ final class LyricsService: ObservableObject {
                   let mr = Range(m.range(at: 1), in: s), let sr = Range(m.range(at: 2), in: s),
                   let tr = Range(m.range(at: 3), in: s),
                   let min = Double(s[mr]), let sec = Double(s[sr]) else { continue }
-            out.append(Line(time: min * 60 + sec, text: String(s[tr]).trimmingCharacters(in: .whitespaces)))
+            let text = String(s[tr]).trimmingCharacters(in: .whitespaces)
+            if isCredit(text) { continue }   // «作词 : …», «Composer: …»… no es letra
+            out.append(Line(time: min * 60 + sec, text: text))
         }
         return out.sorted { $0.time < $1.time }
+    }
+
+    // Créditos que algunas fuentes meten como si fueran líneas de la letra.
+    private static let creditRegex = try? NSRegularExpression(
+        pattern: #"^(作词|作詞|作曲|编曲|編曲|词|詞|曲|制作人|製作人|监制|監製|混音|录音|和声|吉他|贝斯|鼓|lyrics?|lyricist|composer|composed|written|music|producer|produced|arranger|arranged|mixed|letra|m[uú]sica|compositor(es)?|autor(es)?)(\s+by)?\s*[:：]"#,
+        options: [.caseInsensitive])
+
+    static func isCredit(_ text: String) -> Bool {
+        guard let r = creditRegex else { return false }
+        return r.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
     }
 }
 
